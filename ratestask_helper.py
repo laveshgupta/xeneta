@@ -287,4 +287,9 @@ class RatestaskHelper:
                 res_code=400
             )
 
-        return date_from, date_to, origin_port_codes, dest_port_codes
+        return {
+            'date_from': date_from,
+            'date_to': date_to,
+            'origin_port_codes': origin_port_codes,
+            'dest_port_codes': dest_port_codes
+        }
