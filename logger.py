@@ -62,6 +62,10 @@ class Logger:
         self.log('CRITICAL', message=message)
 
 
+    def exception(self, message):
+        self.log('EXCEPTION', message=message)
+
+
     def log(self, severity:str, message:str):
         if severity == 'DEBUG':
             self.__logger.debug(message)
@@ -73,3 +77,5 @@ class Logger:
             self.__logger.error(message)
         elif severity == 'CRITICAL':
             self.__logger.critical(message)
+        elif severity == 'EXCEPTION':
+            self.__logger.exception(message)
