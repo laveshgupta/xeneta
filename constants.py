@@ -25,3 +25,4 @@ class Constants:
         'port': 1,
         'region': 2
     }
+    INTEGRATION_TESTS_CASES_FILE = 'ratestask_integration_tests.json'

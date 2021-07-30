@@ -1,0 +1,22 @@
+[
+    {
+        "id": 1,
+        "input": {"date_from": "2016-01-01", "date_to": "01-01-2016", "origin": "china_main", "destination": "baltic"},
+        "expected_output": {"res_code": 400, "res_msg": "Request cannot be processed as these dates ['date_to'] are not correct"}
+    },
+    {
+        "id": 2,
+        "input": {"date_from": "2016-01-01", "date_to": "2016-01-01", "destination": "baltic"},
+        "expected_output": {"res_code": 400, "res_msg": "Request cannot be processed as these parameters ['origin'] are not passed"}
+    },
+    {
+        "id": 3,
+        "input": {"date_from": "2016-01-01", "date_to": "2016-01-01", "origin": "usa", "destination": "baltic"},
+        "expected_output": {"res_code": 400, "res_msg": "Request cannot be processed as origin parameter: usa is neither port code or region slug"}
+    },
+    {
+        "id": 4,
+        "input": {"date_from": "2016-01-01", "date_to": "2016-01-01", "origin": "china_main", "destination": "baltic"},
+        "expected_output": {"res_code": 200, "res_msg": "[{\"day\": \"2016-01-01\", \"average_price\": 1361}]"}
+    }
+]
