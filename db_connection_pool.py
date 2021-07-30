@@ -7,6 +7,9 @@ class DBConnectionPool:
 
     @staticmethod
     def get_instance():
+        """
+        Singleton function which is responsible so that only one instance of DB Connection Pool is present.
+        """
         if DBConnectionPool.__instance == None:
             DBConnectionPool()
         return DBConnectionPool.__instance
@@ -16,11 +19,14 @@ class DBConnectionPool:
         if DBConnectionPool.__instance != None:
             raise Exception("This class is a singleton!")
         else:
-            self.__create_db_pool()
+            self.__create_db_conn_pool()
             DBConnectionPool.__instance = self
 
 
-    def __create_db_pool(self):
+    def __create_db_conn_pool(self):
+        """
+        Create DB Connection Pool
+        """
         logger.info('Creating DB Connection Pool.')
         db_config = config.get('db', {})
         db_min_conn = db_config.get('min_conn', Constants.DEFAULT_DB_MIN_CONN)
@@ -47,6 +53,9 @@ class DBConnectionPool:
 
 
     def execute_query(self, query:str, params:dict):
+        """
+        Responsible for execution of query
+        """
         db_conn = cursor = None
         try:
             logger.debug(f"Executing query: {query}  with params: {params}")

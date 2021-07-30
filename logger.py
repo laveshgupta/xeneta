@@ -7,6 +7,9 @@ class Logger:
 
     @staticmethod
     def get_instance():
+        """
+        Singleton function for logger class 
+        """
         if Logger.__instance == None:
             Logger()
         return Logger.__instance
@@ -21,9 +24,10 @@ class Logger:
 
 
     def __create_logger(self):
-        print(f"config: {config}")
+        """
+        Create logger having both stream and file handler
+        """
         logging_config = config.get('logging', {})
-        print(f"logging_config: {logging_config}")
         log_level = logging_config.get('level', Constants.LOG_LEVEL)
         log_file = logging_config.get('log_file', Constants.LOG_FILE)
         logger = logging.getLogger()

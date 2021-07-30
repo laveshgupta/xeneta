@@ -13,6 +13,9 @@ class RatesTaskServer:
 
 
     def server_run(self):
+        """
+        Starting flask server
+        """
         flask_config = config.get('flask', {})
         flask_host = flask_config.get('host', Constants.APP_HOST)
         flask_port = flask_config.get('port', Constants.APP_PORT)
@@ -24,8 +27,14 @@ class RatesTaskServer:
 
 
     def create_routes(self):
+        """
+        Create routes in application
+        """
         @self.app.route('/rates/')
         def rates():
+            """
+            Create route rates which calculates average price between origin and destination for a day
+            """
             date_from, date_to, origin_port_codes, dest_port_codes = rsh.common_api_functionality()
             rates_list = rsh.get_rate_list(
                             date_from=date_from,
@@ -38,6 +47,9 @@ class RatesTaskServer:
 
         @self.app.route('/rates_ports/')
         def rates_between_ports():
+            """
+            Create route rates_ports which calculates average price between ports for a day.
+            """
             date_from, date_to, origin_port_codes, dest_port_codes = rsh.common_api_functionality()
             rates_list_between_ports = rsh.get_rate_list_between_ports(
                                             date_from=date_from,

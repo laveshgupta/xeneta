@@ -8,20 +8,26 @@ from constants import Constants
 class RatestaskHelper:
 
     @staticmethod
-    def execute_query(query:str, params:dict):
+    def execute_query(query: str, params: dict):
+        """
+        Helper function to execute query
+        """
         return db_conn_pool.execute_query(query=query, params=params)
 
 
     @staticmethod
-    def create_response(res_body:str, res_code:int):
+    def create_response(res_body: str, res_code: int=200):
+        """
+        Function to create response for request
+        """
         output = res_body
         mime_type = 'text/plain'
         separators = (", ", ": ")
-        try:
+        try: #if json dumps is successful then mimetype is changed to json.
             output = json.dumps(res_body, indent=4, separators=separators)
             mime_type = 'application/json'
         except Exception as e:
-            logger.warning("Error in json dumps")
+            logger.warning("Error in json dumps. Hence creating message as plain text.")
         return current_app.response_class(
             response=output,
             status=res_code,
@@ -30,7 +36,10 @@ class RatestaskHelper:
 
 
     @staticmethod
-    def validate_date(date_text):
+    def validate_date(date_text: str):
+        """
+        Function which validate date against input date format
+        """
         date_correct = True
         try:
             datetime.datetime.strptime(date_text, '%Y-%m-%d')
@@ -40,9 +49,12 @@ class RatestaskHelper:
 
 
     @staticmethod
-    def is_port_code(code:str):
-        query = """SELECT COUNT(*) from ports po where po.code=%(code)s"""
-        params = {'code': code}
+    def is_port_code(port_code:str):
+        """
+        Function to find whether the origin or destination is port
+        """
+        query = """SELECT COUNT(*) from ports po where po.code=%(port_code)s"""
+        params = {'port_code': port_code}
 
         rows = RatestaskHelper.execute_query(query=query, params=params)
         count = 0
@@ -55,6 +67,9 @@ class RatestaskHelper:
 
     @staticmethod
     def is_region_slug(region_slug:str):
+        """
+        Function to find whether the origin or destination is region
+        """
         query = "SELECT COUNT(*) from regions re where re.slug=%(region_slug)s"
         params = {'region_slug': region_slug}
 
@@ -69,6 +84,9 @@ class RatestaskHelper:
 
     @staticmethod
     def port_or_region(text:str):
+        """
+        Function to find whether the origin or destination is port or region
+        """
         port_region_code = Constants.PORT_REGION_CODE['none']
         if len(text) == 5:
             if RatestaskHelper.is_port_code(text):
@@ -81,6 +99,10 @@ class RatestaskHelper:
 
     @staticmethod
     def get_rate_list(date_from, date_to, origin_port_codes, dest_port_codes):
+        """
+        Function to get average price between origin and destination for a particular day. This takes into account
+        ports for a region
+        """
         query = """
             SELECT p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
             FROM prices p
@@ -107,6 +129,10 @@ class RatestaskHelper:
 
     @staticmethod
     def get_rate_list_between_ports(date_from, date_to, origin_port_codes, dest_port_codes):
+        """
+        Function to get average price between port codes beloning to origin and destination for a particular day. This takes into account
+        ports for a region
+        """
         # query = """
         #     SELECT p.orig_code, p.dest_code, p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
         #     FROM prices p
@@ -142,6 +168,9 @@ class RatestaskHelper:
 
     @staticmethod
     def get_child_region_for_region(region):
+        """
+        Function which returns all child region for a particular region
+        """
         query = """
             WITH RECURSIVE region_tree(slug, parent_slug)
             AS (SELECT slug, parent_slug FROM regions where slug=%(region)s
@@ -159,6 +188,9 @@ class RatestaskHelper:
 
     @staticmethod
     def get_port_codes_for_region(region):
+        """
+        Function which returns port code for regions
+        """
         all_regions = RatestaskHelper.get_child_region_for_region(region=region)
         query = """
             SELECT p.code
@@ -175,6 +207,13 @@ class RatestaskHelper:
 
     @staticmethod
     def common_api_functionality():
+        """
+        Function implementing common functionality for both api.
+        It validates the input.
+        Returns port codes for origin and destination
+        """
+
+        #Validates if fields are present in request
         date_from = frequest.args.get('date_from', type=str)
         date_to = frequest.args.get('date_to', type=str)
         origin = frequest.args.get('origin', type=str)
@@ -195,6 +234,7 @@ class RatestaskHelper:
                 res_code=400
             )
 
+        #Validates date passed in request
         dates_not_correct = []
         if not RatestaskHelper.validate_date(date_text=date_from):
             dates_not_correct.append('date_from')
@@ -206,6 +246,7 @@ class RatestaskHelper:
                 res_code=400
             )
 
+        #Find whether origin is port code or region. If it none then HTTP 400 error is reported
         origin_port_or_region = RatestaskHelper.port_or_region(origin)
         logger.debug(f"origin_port_or_region: {origin_port_or_region}")
         if origin_port_or_region == Constants.PORT_REGION_CODE['none']:
@@ -214,6 +255,7 @@ class RatestaskHelper:
                 res_code=400
             )
 
+        #Find whether destination is port code or region. If it none then HTTP 400 error is reported
         dest_port_or_region = RatestaskHelper.port_or_region(destination)
         logger.debug(f"dest_port_or_region: {dest_port_or_region}")
         if dest_port_or_region == Constants.PORT_REGION_CODE['none']:
@@ -225,9 +267,11 @@ class RatestaskHelper:
         origin_port_codes = [origin]
         dest_port_codes = [destination]
 
+        #Getting port codes if origin is region
         if origin_port_or_region == Constants.PORT_REGION_CODE['region']:
             origin_port_codes = RatestaskHelper.get_port_codes_for_region(region=origin)
 
+        #Getting port codes if destination is region
         if dest_port_or_region == Constants.PORT_REGION_CODE['region']:
             dest_port_codes = RatestaskHelper.get_port_codes_for_region(region=destination)
 
