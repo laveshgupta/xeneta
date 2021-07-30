@@ -1,0 +1,19 @@
+{
+    "db": {
+        "min_conn": 1,
+        "max_conn": 10,
+        "host": "localhost",
+        "port": "5432",
+        "database": "postgres",
+        "user": "postgres",
+        "password": "ratestask"
+    },
+    "logging": {
+        "level": "DEBUG",
+        "log_file": "ratestask.log"
+    },
+    "flask": {
+        "host": "0.0.0.0",
+        "port": 80
+    }
+}
