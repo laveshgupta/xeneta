@@ -27,37 +27,13 @@ class RatesTaskServer:
     def create_routes(self):
         @self.app.route('/rates/')
         def rates():
-            date_from = frequest.args.get('date_from', type=str)
-            date_to = frequest.args.get('date_to', type=str)
-            origin = frequest.args.get('origin', type=str)
-            destination = frequest.args.get('destination', type=str)
+            rates_between_ports()
+
+
+        @self.app.route('/rates_ports/')
+        def rates_between_ports():
+            date_from, date_to, origin, destination = rsh.common_api_functionality()
             logger.debug(f"------ INSIDE RATES date_from: {date_from}  date_to: {date_to}  origin: {origin} destination: {destination}")
-            parameters_not_present = []
-            if not date_from:
-                parameters_not_present.append('date_from')
-            if not date_to:
-                parameters_not_present.append('date_to')
-            if not origin:
-                parameters_not_present.append('origin')
-            if not destination:
-                parameters_not_present.append('destination')
-            if parameters_not_present:
-                return rsh.create_response(
-                    res_body=f"Request cannot be processed as these parameters {parameters_not_present} are not passed",
-                    res_code=400
-                )
-
-            dates_not_correct = []
-            if not rsh.validate_date(date_text=date_from):
-                dates_not_correct.append('date_from')
-            if not rsh.validate_date(date_text=date_to):
-                dates_not_correct.append('date_to')
-            if dates_not_correct:
-                return rsh.create_response(
-                    res_body=f"Request cannot be processed as these dates {dates_not_correct} are not correct",
-                    res_code=400
-                )
-
             is_origin_code, is_origin_region = rsh.code_or_region_slug(origin)
             Logger.get_instance().debug(f"is_origin_code: {is_origin_code}    is_origin_region: {is_origin_region}")
             if not is_origin_code and not is_origin_region:

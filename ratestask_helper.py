@@ -1,7 +1,7 @@
 import json
 import datetime
 from flask import current_app
-import traceback
+from flask import request as frequest
 
 
 class RatestaskHelper:
@@ -21,7 +21,6 @@ class RatestaskHelper:
             mime_type = 'application/json'
         except Exception as e:
             logger.warning("Error in json dumps")
-            print(traceback.print_exc(e))
         return current_app.response_class(
             response=output,
             status=res_code,
@@ -46,8 +45,9 @@ class RatestaskHelper:
         params = {'code': code}
 
         rows = RatestaskHelper.execute_query(query=query, params=params)
-        print(f"rows: {rows}")
-        count = rows[0][0]
+        count = 0
+        if rows:
+            count = rows[0][0]
         if count:
             return True
         return False
@@ -58,8 +58,11 @@ class RatestaskHelper:
         # query = "SELECT COUNT(*) from regions re where re.slug='{region_slug}'"
         query = "SELECT COUNT(*) from regions re where re.slug=%(region_slug)s"
         params = {'region_slug': region_slug}
+
         rows = RatestaskHelper.execute_query(query=query, params=params)
-        count = rows[0][0]
+        count = 0
+        if rows:
+            count = rows[0][0]
         if count:
             return True
         return False
@@ -77,13 +80,13 @@ class RatestaskHelper:
 
     @staticmethod
     def get_rate_list(date_from, date_to, orig_codes, dest_codes):
-        query = """
-            SELECT p.orig_code, p.dest_code, p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
-            FROM prices p
-            WHERE p.orig_code IN {orig_codes} AND p.dest_code IN {dest_codes} AND p.day >= {date_from} AND p.day <= {date_to}
-            GROUP BY p.orig_code, p.dest_code, p.day
-            ORDER BY p.day;
-        """
+        # query = """
+        #     SELECT p.orig_code, p.dest_code, p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
+        #     FROM prices p
+        #     WHERE p.orig_code IN {orig_codes} AND p.dest_code IN {dest_codes} AND p.day >= {date_from} AND p.day <= {date_to}
+        #     GROUP BY p.orig_code, p.dest_code, p.day
+        #     ORDER BY p.day;
+        # """
         query = """
             SELECT p.orig_code, p.dest_code, p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
             FROM prices p
@@ -101,7 +104,6 @@ class RatestaskHelper:
         rows = RatestaskHelper.execute_query(query=query, params=params)
         rate_list = []
         for row in rows:
-            print(row)
             rate_list.append({
                 'origin': row[0],
                 'destination': row[1],
@@ -118,13 +120,12 @@ class RatestaskHelper:
             AS (SELECT slug, parent_slug FROM regions where slug=%(region)s
                 UNION ALL
                 SELECT r.slug, r.parent_slug FROM regions r, region_tree rt where r.parent_slug = rt.slug)
-            SELECT rt.slug as region, rt.parent_slug As parent_region from region_tree rt where rt.parent_slug is not NULL ORDER By rt.parent_slug;
+            SELECT rt.slug as region, rt.parent_slug As parent_region from region_tree rt ORDER By rt.parent_slug;
         """
         params = {'region': region}
         rows = RatestaskHelper.execute_query(query=query, params=params)
         all_regions = []
         for row in rows:
-            print(row)
             all_regions.append(row[0])
         return all_regions
 
@@ -132,7 +133,6 @@ class RatestaskHelper:
     @staticmethod
     def get_port_code_for_region(region):
         all_regions = RatestaskHelper.get_child_region_for_region(region=region)
-        print(f"\n\nall_regions: {all_regions}")
         query = """
             SELECT p.code
             FROM ports p
@@ -142,6 +142,40 @@ class RatestaskHelper:
         rows = RatestaskHelper.execute_query(query=query, params=params)
         port_codes = []
         for row in rows:
-            print(f"\n {row}")
             port_codes.append(row[0])
         return port_codes
+
+
+    @staticmethod
+    def common_api_functionality():
+        date_from = frequest.args.get('date_from', type=str)
+        date_to = frequest.args.get('date_to', type=str)
+        origin = frequest.args.get('origin', type=str)
+        destination = frequest.args.get('destination', type=str)
+        logger.debug(f"------ INSIDE RATES date_from: {date_from}  date_to: {date_to}  origin: {origin} destination: {destination}")
+        parameters_not_present = []
+        if not date_from:
+            parameters_not_present.append('date_from')
+        if not date_to:
+            parameters_not_present.append('date_to')
+        if not origin:
+            parameters_not_present.append('origin')
+        if not destination:
+            parameters_not_present.append('destination')
+        if parameters_not_present:
+            return RatestaskHelper.create_response(
+                res_body=f"Request cannot be processed as these parameters {parameters_not_present} are not passed",
+                res_code=400
+            )
+
+        dates_not_correct = []
+        if not RatestaskHelper.validate_date(date_text=date_from):
+            dates_not_correct.append('date_from')
+        if not RatestaskHelper.validate_date(date_text=date_to):
+            dates_not_correct.append('date_to')
+        if dates_not_correct:
+            return RatestaskHelper.create_response(
+                res_body=f"Request cannot be processed as these dates {dates_not_correct} are not correct",
+                res_code=400
+            )
+        return date_from, date_to, origin, destination
