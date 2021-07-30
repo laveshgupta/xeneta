@@ -2,6 +2,7 @@ import json
 import datetime
 from flask import current_app
 from flask import request as frequest
+from constants import Constants
 
 
 class RatestaskHelper:
@@ -40,7 +41,6 @@ class RatestaskHelper:
 
     @staticmethod
     def is_port_code(code:str):
-        # query = "SELECT COUNT(*) from ports po where po.code='{code}'"
         query = """SELECT COUNT(*) from ports po where po.code=%(code)s"""
         params = {'code': code}
 
@@ -55,7 +55,6 @@ class RatestaskHelper:
 
     @staticmethod
     def is_region_slug(region_slug:str):
-        # query = "SELECT COUNT(*) from regions re where re.slug='{region_slug}'"
         query = "SELECT COUNT(*) from regions re where re.slug=%(region_slug)s"
         params = {'region_slug': region_slug}
 
@@ -69,17 +68,45 @@ class RatestaskHelper:
 
 
     @staticmethod
-    def code_or_region_slug(text:str):
-        is_code = is_region = False
+    def port_or_region(text:str):
+        port_region_code = Constants.PORT_REGION_CODE['none']
         if len(text) == 5:
-            is_code = RatestaskHelper.is_port_code(text)
-        if not is_code:
-            is_region = RatestaskHelper.is_region_slug(text)
-        return is_code, is_region
+            if RatestaskHelper.is_port_code(text):
+                port_region_code = Constants.PORT_REGION_CODE['port']
+        if not port_region_code:
+            if RatestaskHelper.is_region_slug(text):
+                port_region_code = Constants.PORT_REGION_CODE['region']
+        return port_region_code
 
 
     @staticmethod
-    def get_rate_list(date_from, date_to, orig_codes, dest_codes):
+    def get_rate_list(date_from, date_to, origin_port_codes, dest_port_codes):
+        query = """
+            SELECT p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
+            FROM prices p
+            WHERE p.orig_code = ANY(%(origin_port_codes)s) AND p.dest_code = ANY(%(dest_port_codes)s) AND p.day >= %(date_from)s AND p.day <= %(date_to)s
+            GROUP BY p.day
+            ORDER BY p.day;
+        """
+        params = {
+            'origin_port_codes': origin_port_codes,
+            'dest_port_codes': dest_port_codes,
+            'date_from': date_from,
+            'date_to': date_to
+        }
+
+        rows = RatestaskHelper.execute_query(query=query, params=params)
+        rate_list = []
+        for row in rows:
+            rate_list.append({
+                'day': row[0].strftime('%Y-%m-%d'),
+                'average_price': int(row[2]) if row[2] else row[2]
+            })
+        return rate_list
+
+
+    @staticmethod
+    def get_rate_list_between_ports(date_from, date_to, origin_port_codes, dest_port_codes):
         # query = """
         #     SELECT p.orig_code, p.dest_code, p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
         #     FROM prices p
@@ -90,13 +117,13 @@ class RatestaskHelper:
         query = """
             SELECT p.orig_code, p.dest_code, p.day, COUNT(p.price), case when COUNT(p.price) > 2 THEN AVG(p.price) ELSE null END AS Average
             FROM prices p
-            WHERE p.orig_code = ANY(%(orig_codes)s) AND p.dest_code = ANY(%(dest_codes)s) AND p.day >= %(date_from)s AND p.day <= %(date_to)s
+            WHERE p.orig_code = ANY(%(origin_port_codes)s) AND p.dest_code = ANY(%(dest_port_codes)s) AND p.day >= %(date_from)s AND p.day <= %(date_to)s
             GROUP BY p.orig_code, p.dest_code, p.day
             ORDER BY p.day;
         """
         params = {
-            'orig_codes': orig_codes,
-            'dest_codes': dest_codes,
+            'origin_port_codes': origin_port_codes,
+            'dest_port_codes': dest_port_codes,
             'date_from': date_from,
             'date_to': date_to
         }
@@ -131,7 +158,7 @@ class RatestaskHelper:
 
 
     @staticmethod
-    def get_port_code_for_region(region):
+    def get_port_codes_for_region(region):
         all_regions = RatestaskHelper.get_child_region_for_region(region=region)
         query = """
             SELECT p.code
@@ -178,4 +205,42 @@ class RatestaskHelper:
                 res_body=f"Request cannot be processed as these dates {dates_not_correct} are not correct",
                 res_code=400
             )
-        return date_from, date_to, origin, destination
+
+        origin_port_or_region = RatestaskHelper.port_or_region(origin)
+        logger.debug(f"origin_port_or_region: {origin_port_or_region}")
+        if origin_port_or_region == Constants.PORT_REGION_CODE['none']:
+            return RatestaskHelper.create_response(
+                res_body=f"Request cannot be processed as origin parameter: {origin} is neither port code or region slug",
+                res_code=400
+            )
+
+        dest_port_or_region = RatestaskHelper.port_or_region(destination)
+        logger.debug(f"dest_port_or_region: {dest_port_or_region}")
+        if dest_port_or_region == Constants.PORT_REGION_CODE['none']:
+            return RatestaskHelper.create_response(
+                res_body=f"Request cannot be processed as destination parameter: {destination} is neither port code or region slug",
+                res_code=400
+            )
+
+        origin_port_codes = [origin]
+        dest_port_codes = [destination]
+
+        if origin_port_or_region == Constants.PORT_REGION_CODE['region']:
+            origin_port_codes = RatestaskHelper.get_port_codes_for_region(region=origin)
+
+        if dest_port_or_region == Constants.PORT_REGION_CODE['region']:
+            dest_port_codes = RatestaskHelper.get_port_codes_for_region(region=destination)
+
+        if not origin_port_codes:
+            return RatestaskHelper.create_response(
+                res_body=f"Request cannot be processed as no port code exists for specified origin region: {origin}",
+                res_code=400
+            )
+
+        if not dest_port_codes:
+            return RatestaskHelper.create_response(
+                res_body=f"Request cannot be processed as no port code exists for specified destination region: {destination}",
+                res_code=400
+            )
+
+        return date_from, date_to, origin_port_codes, dest_port_codes
