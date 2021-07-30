@@ -20,3 +20,8 @@ class Constants:
     LOG_FILE = 'ratestask.log'
     APP_HOST = '0.0.0.0'
     APP_PORT = 80
+    PORT_REGION_CODE = {
+        'none': 0,
+        'port': 1,
+        'region': 2
+    }
