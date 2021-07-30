@@ -1,4 +1,4 @@
-# xeneta
+# Xeneta
 This repo is created to solve interview assignment- Ratestask
 
 ## File Structure
