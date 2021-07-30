@@ -1,3 +1,4 @@
+from flask.wrappers import Response
 from config import Config
 from constants import Constants
 from logger import Logger
@@ -35,12 +36,14 @@ class RatesTaskServer:
             """
             Create route rates which calculates average price between origin and destination for a day
             """
-            date_from, date_to, origin_port_codes, dest_port_codes = rsh.common_api_functionality()
+            rates_params = rsh.common_api_functionality()
+            if isinstance(rates_params, Response):
+                return rates_params
             rates_list = rsh.get_rate_list(
-                            date_from=date_from,
-                            date_to=date_to,
-                            origin_port_codes=origin_port_codes,
-                            dest_port_codes=dest_port_codes
+                            date_from=rates_params['date_from'],
+                            date_to=rates_params['date_to'],
+                            origin_port_codes=rates_params['origin_port_codes'],
+                            dest_port_codes=rates_params['dest_port_codes']
                         )
             return rsh.create_response(rates_list, 200)
 
@@ -50,12 +53,14 @@ class RatesTaskServer:
             """
             Create route rates_ports which calculates average price between ports for a day.
             """
-            date_from, date_to, origin_port_codes, dest_port_codes = rsh.common_api_functionality()
+            rates_params = rsh.common_api_functionality()
+            if isinstance(rates_params, Response):
+                return rates_params
             rates_list_between_ports = rsh.get_rate_list_between_ports(
-                                            date_from=date_from,
-                                            date_to=date_to,
-                                            origin_port_codes=origin_port_codes,
-                                            dest_port_codes=dest_port_codes
+                                            date_from=rates_params['date_from'],
+                                            date_to=rates_params['date_to'],
+                                            origin_port_codes=rates_params['origin_port_codes'],
+                                            dest_port_codes=rates_params['dest_port_codes']
                                         )
 
             return rsh.create_response(rates_list_between_ports, 200)
