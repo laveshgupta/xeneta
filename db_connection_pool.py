@@ -47,14 +47,25 @@ class DBConnectionPool:
 
 
     def execute_query(self, query:str, params:dict):
-        logger.debug(f"Executing query: {query}  with params: {params}")
-        db_conn = self.__db_conn_pool.getconn()
-        cursor = db_conn.cursor()
-        # cursor.execute(query.format(**params))
-        logger.debug(f"Getting SQL equivalent query: {cursor.mogrify(query, params)}")
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        logger.debug(f"Output query: {rows}")
-        cursor.close()
-        self.__db_conn_pool.putconn(db_conn)
-        return rows
+        db_conn = cursor = None
+        try:
+            logger.debug(f"Executing query: {query}  with params: {params}")
+            db_conn = self.__db_conn_pool.getconn()
+            cursor = db_conn.cursor()
+            # cursor.execute(query.format(**params))
+            logger.debug(f"Getting SQL equivalent query: {cursor.mogrify(query, params)}")
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            logger.debug("Query executed")
+            cursor.close()
+            self.__db_conn_pool.putconn(db_conn)
+            db_conn = cursor = None
+            return rows
+        except Exception as e:
+            logger.exception(f"Error in executing query: {query}. Traceback: {e} ")
+            raise e
+        finally:
+            if cursor:
+                cursor.close()
+            if db_conn:
+                self.__db_conn_pool.putconn(db_conn)
